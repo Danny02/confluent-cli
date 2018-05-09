@@ -28,10 +28,6 @@ oss: prep
 	cp -f src/oss/confluent.sh bin/confluent
 	chmod 755 bin/confluent
 
-platform: prep
-	cp -f src/platform/confluent.sh bin/confluent
-	chmod 755 bin/confluent
-
 clean:
 	rm -rf bin/
 
