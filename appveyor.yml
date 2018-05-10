@@ -12,14 +12,15 @@ environment:
 #matrix:
 #  fast_finish: true 
 
-init:
+install:
   - ps: $env:PATH = $env:PATH -replace "C:\\Program Files\\Git\\usr\\bin",""
   - cinst kafka
   - "set PATH=%sys_path%;%KAFKA_HOME%\\bin;%PATH%"
+  - bash -c "bash <(curl -s https://raw.githubusercontent.com/pgrange/bash_unit/master/install.sh)"
 
 build_script: bash -c "make install"
 
-test_script: appveyor-test.bat
+test_script: bash bash_unit test/test-*.sh
 
 cache:
   - C:\ProgramData\chocolatey\bin -> appveyor.yml

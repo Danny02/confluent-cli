@@ -228,7 +228,7 @@ spinner_done() {
 }
 
 get_version() {
-    local kafka_prefix="${kafka_home}/libs/kafka/kafka-clients-"
+    local kafka_prefix="${kafka_home}/libs/kafka-clients-"
     local zookeeper_prefix="${kafka_home}/libs/zookeeper-"
 
     kafka_version="$( ls ${kafka_prefix}*.jar 2> /dev/null )"
