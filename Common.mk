@@ -25,7 +25,7 @@ prep:
 	mkdir -p bin/
 
 oss: prep
-	cp -f src/oss/confluent.sh bin/confluent
+	cp -f src/confluent.sh bin/confluent
 	chmod 755 bin/confluent
 
 clean:
