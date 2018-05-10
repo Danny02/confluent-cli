@@ -68,27 +68,13 @@ RC='\e[0m'
 declare -a services=(
     "zookeeper"
     "kafka"
-    "schema-registry"
-    "kafka-rest"
     "connect"
-    "ksql-server"
 )
 
 declare -a rev_services=(
-    "ksql-server"
     "connect"
-    "kafka-rest"
-    "schema-registry"
     "kafka"
     "zookeeper"
-)
-
-declare -a enterprise_services=(
-    "control-center"
-)
-
-declare -a rev_enterprise_services=(
-    "control-center"
 )
 
 declare -a commands=(
@@ -104,10 +90,6 @@ declare -a commands=(
     "unload"
     "config"
     "version"
-)
-
-declare -a enterprise_commands=(
-    "acl"
 )
 
 declare -a connector_properties=(
@@ -250,41 +232,6 @@ spinner_done() {
     # Backspace to override spinner in the next printf/echo
     [[ "${spinner_running}" == true ]] && printf "\b"
     spinner_running=false
-}
-
-is_enterprise() {
-    local enterprise_prefix="${confluent_home}/share/java/confluent-control-center/control-center-"
-    confluent_version="$( ls ${enterprise_prefix}*.jar 2> /dev/null )"
-    status=$?
-    return ${status}
-}
-
-get_version() {
-    local enterprise_prefix="${confluent_home}/share/java/kafka-connect-replicator/kafka-connect-replicator-"
-    local cos_prefix="${confluent_home}/share/java/confluent-common/common-config-"
-    local kafka_prefix="${confluent_home}/share/java/kafka/kafka-clients-"
-    local zookeeper_prefix="${confluent_home}/share/java/kafka/zookeeper-"
-
-    confluent_version="$( ls ${enterprise_prefix}*.jar 2> /dev/null )"
-    status=$?
-    if [[ ${status} -eq 0 ]]; then
-        export confluent_flavor="Confluent Enterprise"
-        confluent_version="${confluent_version#$enterprise_prefix}"
-        export confluent_version="${confluent_version%.jar}"
-    else
-        confluent_version="$( ls ${cos_prefix}*.jar 2> /dev/null )"
-        export confluent_flavor="Confluent Open Source"
-        confluent_version="${confluent_version#$cos_prefix}"
-        export confluent_version="${confluent_version%.jar}"
-    fi
-
-    kafka_version="$( ls ${kafka_prefix}*.jar 2> /dev/null )"
-    kafka_version="${kafka_version#$kafka_prefix}"
-    export kafka_version="${kafka_version%.jar}"
-
-    zookeeper_version="$( ls ${zookeeper_prefix}*.jar 2> /dev/null )"
-    zookeeper_version="${zookeeper_version#$zookeeper_prefix}"
-    export zookeeper_version="${zookeeper_version%.jar}"
 }
 
 set_or_get_current() {
@@ -441,7 +388,6 @@ start_kafka() {
 config_kafka() {
     export_kafka
     config_service "kafka" "kafka" "server" "log.dirs"
-    enable_metrics_reporter "kafka"
 }
 
 export_kafka() {
@@ -475,104 +421,6 @@ wait_kafka() {
     wait_process_up "${pid}" 3000 || echo "Kafka failed to start"
 }
 
-start_schema-registry() {
-    local service="schema-registry"
-    is_running "kafka" "false" \
-        || die "Cannot start Schema Registry, Kafka Server is not running. Check your deployment"
-    export_service_env "SCHEMA_REGISTRY_"
-    export_log4j_schema-registry
-    start_service "schema-registry" "${confluent_bin}/schema-registry-start"
-}
-
-config_schema-registry() {
-    export_zookeeper
-    config_service "schema-registry" "schema-registry" "schema-registry"\
-        "kafkastore.connection.url" "localhost:${zk_port}"
-    enable_monitoring_interceptors "schema-registry"
-}
-
-export_schema-registry() {
-    get_service_port "listeners" "${confluent_conf}/schema-registry/schema-registry.properties"
-    if [[ -n "${_retval}" ]]; then
-        export schema_registry_port="${_retval}"
-    else
-        export schema_registry_port="8081"
-    fi
-}
-
-export_log4j_schema-registry() {
-    export_log4j_with_generic_log_dir "schema-registry"
-}
-
-stop_schema-registry() {
-    stop_service "schema-registry"
-}
-
-wait_schema-registry() {
-    local pid="${1}"
-    export_schema-registry
-
-    local started=false
-    local timeout_ms=5000
-    while [[ "${started}" == false && "${timeout_ms}" -gt 0 ]]; do
-        ( lsof -P -c java 2> /dev/null | grep ${schema_registry_port} > /dev/null 2>&1 ) && started=true
-        spinner && (( timeout_ms = timeout_ms - wheel_freq_ms ))
-    done
-    wait_process_up "${pid}" 2000 || echo "Schema Registry failed to start"
-}
-
-start_kafka-rest() {
-    local service="kafka-rest"
-    is_running "kafka" "false" \
-        || die "Cannot start Kafka Rest, Kafka Server is not running. Check your deployment"
-    export_service_env "KAFKAREST_"
-    export_log4j_kafka-rest
-    start_service "kafka-rest" "${confluent_bin}/kafka-rest-start"
-}
-
-config_kafka-rest() {
-    export_zookeeper
-    export_schema-registry
-
-    config_service "kafka-rest" "kafka-rest" "kafka-rest"\
-        "zookeeper.connect" "localhost:${zk_port}"
-
-    config_service "kafka-rest" "kafka-rest" "kafka-rest"\
-        "schema.registry.url" "http://localhost:${schema_registry_port}" "reapply"
-
-    enable_monitoring_interceptors "kafka-rest"
-}
-
-export_kafka-rest() {
-    get_service_port "listeners" "${confluent_conf}/kafka-rest/kafka-rest.properties"
-    if [[ -n "${_retval}" ]]; then
-        export kafka_rest_port="${_retval}"
-    else
-        export kafka_rest_port="8082"
-    fi
-}
-
-export_log4j_kafka-rest() {
-    export_log4j_with_generic_log_dir "kafka-rest"
-}
-
-stop_kafka-rest() {
-    stop_service "kafka-rest"
-}
-
-wait_kafka-rest() {
-    local pid="${1}"
-    export_kafka-rest
-
-    local started=false
-    local timeout_ms=5000
-    while [[ "${started}" == false && "${timeout_ms}" -gt 0 ]]; do
-        ( lsof -P -c java 2> /dev/null | grep ${kafka_rest_port} > /dev/null 2>&1 ) && started=true
-        spinner && (( timeout_ms = timeout_ms - wheel_freq_ms ))
-    done
-    wait_process_up "${pid}" 2000 || echo "Kafka Rest failed to start"
-}
-
 start_connect() {
     local service="connect"
     is_running "kafka" "false" \
@@ -588,8 +436,6 @@ config_connect() {
 
     config_service "connect" "schema-registry" "connect-avro-distributed" \
         "bootstrap.servers" "localhost:${kafka_port}"
-
-    enable_monitoring_interceptors "connect"
 }
 
 export_connect() {
@@ -616,98 +462,10 @@ wait_connect() {
     local started=false
     local timeout_ms=10000
     while [[ "${started}" == false && "${timeout_ms}" -gt 0 ]]; do
-        ( lsof -P -c java 2> /dev/null | grep ${connect_port} > /dev/null 2>&1 ) && started=true
+        ( netstat -aon 2> /dev/null | grep -a ${connect_port} > /dev/null 2>&1 ) && started=true
         spinner && (( timeout_ms = timeout_ms - wheel_freq_ms ))
     done
     wait_process_up "${pid}" 4000 || echo "Kafka Connect failed to start"
-}
-
-start_ksql-server() {
-    local service="ksql-server"
-    is_running "schema-registry" "false" \
-        || die "Cannot start ksql-server, Kafka Server or Schema Registry Server is not running. Check your deployment"
-    export_service_env "KSQL_"
-    export_log4j_ksql-server
-    start_service "ksql-server" "${confluent_bin}/ksql-server-start"
-}
-
-config_ksql-server() {
-    export_zookeeper
-    config_service "ksql-server" "ksql" "ksql-server"\
-        "kafkastore.connection.url" "localhost:${zk_port}"
-    enable_monitoring_interceptors "ksql-server"
-}
-
-export_ksql-server() {
-    get_service_port "listeners" "${confluent_conf}/ksql/ksql-server.properties"
-    if [[ -n "${_retval}" ]]; then
-        export ksql_port="${_retval}"
-    else
-        export ksql_port="8088"
-    fi
-}
-
-export_log4j_ksql-server() {
-    export_log4j_with_generic_log_dir "ksql-server"
-}
-
-stop_ksql-server() {
-    stop_service "ksql-server"
-}
-
-wait_ksql-server() {
-    local pid="${1}"
-    export_ksql-server
-
-    local started=false
-    local timeout_ms=5000
-    while [[ "${started}" == false && "${timeout_ms}" -gt 0 ]]; do
-        ( lsof -P -c java 2> /dev/null | grep ${ksql_port} > /dev/null 2>&1 ) && started=true
-        spinner && (( timeout_ms = timeout_ms - wheel_freq_ms ))
-    done
-    wait_process_up "${pid}" 2000 || echo "ksql-server failed to start"
-}
-
-start_control-center() {
-    local service="control-center"
-    is_running "connect" "false" \
-        || die "Cannot start Control-Center, Kafka Connect is not running. Check your deployment"
-    export_service_env "CONTROL_CENTER_"
-    export_log4j_control-center
-    start_service "control-center" "${confluent_bin}/control-center-start"
-}
-
-config_control-center() {
-    export_zookeeper
-    export_kafka
-    export_connect
-    config_service "control-center" "confluent-control-center" "control-center-dev" "confluent.controlcenter.data.dir"
-}
-
-export_control-center() {
-    #no-op
-    return
-}
-
-export_log4j_control-center() {
-    export_log4j_with_generic_log_dir "control-center"
-}
-
-stop_control-center() {
-    stop_service "control-center"
-}
-
-wait_control-center() {
-    local pid="${1}"
-    export_control-center
-
-    local started=false
-    local timeout_ms=10000
-    while [[ "${started}" == false && "${timeout_ms}" -gt 0 ]]; do
-        ( lsof -P -c java 2> /dev/null | grep ${control_conter_port} > /dev/null 2>&1 ) && started=true
-        spinner && (( timeout_ms = timeout_ms - wheel_freq_ms ))
-    done
-    wait_process_up "${pid}" 2000 || echo "control-center failed to start"
 }
 
 status_service() {
@@ -719,14 +477,6 @@ status_service() {
     skip=true
     local entry=""
     [[ -z "${service}" ]] && skip=false
-    is_enterprise
-    status=$?
-    if [[ ${status} -eq 0 ]]; then
-        for entry in "${rev_enterprise_services[@]}"; do
-            [[ "${entry}" == "${service}" ]] && skip=false;
-            [[ "${skip}" == false ]] && is_running "${entry}"
-        done
-    fi
 
     for entry in "${rev_services[@]}"; do
         [[ "${entry}" == "${service}" ]] && skip=false;
@@ -782,64 +532,17 @@ config_service() {
 
     # Override Connect's config, in case this is an unchanged config from a tar.gz or .zip package
     # installation, to make plugin.path work for any "current working directory (cwd)"
-    if [[ "${service}" == "connect" ]]; then
-        sed "s@^plugin.path=share/java@plugin.path=${confluent_home}/share/java@g" \
-            "${service_dir}/${service}.properties" > "${service_dir}/${service}.properties.bak"
-        mv -f "${service_dir}/${service}.properties.bak" "${service_dir}/${service}.properties"
-    fi
-
-    # Set ksql-server data dir. TODO: refactor when config_service supports general handling of key-value pairs
-    if [[ "${service}" == "ksql-server" ]]; then
-        mkdir -p "${service_dir}/data/kafka-streams"
-        echo "" >> "${service_dir}/${service}.properties"
-        echo "state.dir=${service_dir}/data/kafka-streams" >> "${service_dir}/${service}.properties"
-    fi
+    #local plugins_dir=$(cygpath -w ${confluent_home}/kafka/plugins | sed 's|\\|/|g')
+    #if [[ "${service}" == "connect" ]]; then
+    #    sed "s@^#plugin.path=@plugin.path=${plugins_dir}@g" \
+    #        "${service_dir}/${service}.properties" > "${service_dir}/${service}.properties.bak"
+    #    mv -f "${service_dir}/${service}.properties.bak" "${service_dir}/${service}.properties"
+    #fi
 }
 
 export_log4j_with_generic_log_dir() {
     local service="${1}"
     export LOG_DIR="${confluent_current}/${service}/logs"
-}
-
-enable_metrics_reporter() {
-    is_enterprise
-    status=$?
-    if [[ ${status} -ne 0 ]]; then
-        return 1
-    fi
-
-    local service="${1}"
-
-    local service_dir="${confluent_current}/${service}"
-    echo "" >> "${service_dir}/${service}.properties"
-    echo "metric.reporters=io.confluent.metrics.reporter.ConfluentMetricsReporter" \
-        >> "${service_dir}/${service}.properties"
-    echo "confluent.metrics.reporter.bootstrap.servers=localhost:${kafka_port}" \
-        >> "${service_dir}/${service}.properties"
-    echo "confluent.metrics.reporter.topic.replicas=1" >> "${service_dir}/${service}.properties"
-    echo "" >> "${service_dir}/${service}.properties"
-
-    return 0
-}
-
-enable_monitoring_interceptors() {
-    is_enterprise
-    status=$?
-    if [[ ${status} -ne 0 ]]; then
-        return 1
-    fi
-
-    local service="${1}"
-
-    local service_dir="${confluent_current}/${service}"
-    echo "" >> "${service_dir}/${service}.properties"
-    echo "producer.interceptor.classes=io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor" \
-        >> "${service_dir}/${service}.properties"
-    echo "consumer.interceptor.classes=io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor" \
-        >> "${service_dir}/${service}.properties"
-    echo "" >> "${service_dir}/${service}.properties"
-
-    return 0
 }
 
 stop_service() {
@@ -857,13 +560,12 @@ stop_service() {
 service_exists() {
     local service="${1}"
     exists "${service}" "services" && return 0
-    is_enterprise && exists "${service}" "enterprise_services" && return 0
     return 1
 }
 
 command_exists() {
     local command="${1}"
-    exists "${command}" "commands" || exists "${command}" "enterprise_commands"
+    exists "${command}" "commands"
 }
 
 exec_cli(){
@@ -876,12 +578,8 @@ exists() {
     case "${2}" in
         "services")
         local list=( "${services[@]}" ) ;;
-        "enterprise_services")
-        local list=( "${enterprise_services[@]}" ) ;;
         "commands")
         local list=( "${commands[@]}" ) ;;
-        "enterprise_commands")
-        local list=( "${enterprise_commands[@]}" ) ;;
     esac
 
     local entry=""
@@ -898,14 +596,6 @@ list_command() {
         for service in "${services[@]}"; do
             echo "  ${service}"
         done
-
-        is_enterprise
-        status=$?
-        if [[ ${status} -eq 0 ]]; then
-            for service in "${enterprise_services[@]}"; do
-                echo "  ${service}"
-            done
-        fi
     else
         connect_subcommands "list" "$@"
     fi
@@ -915,26 +605,12 @@ start_command() {
     set_or_get_current
     echo "Using CONFLUENT_CURRENT: ${confluent_current}"
     start_or_stop_service "start" "services" "${@}"
-    status=$?
-    if [[ ${status} -eq 0 ]]; then
-        is_enterprise && start_or_stop_service "start" "enterprise_services" "${@}"
-    fi
 }
 
 stop_command() {
     set_or_get_current
     echo "Using CONFLUENT_CURRENT: ${confluent_current}"
-    is_enterprise
-    status=$?
-    if [[ ${status} -eq 0 ]]; then
-        start_or_stop_service "stop" "rev_enterprise_services" "${@}"
-        status=$?
-    else
-        status=0
-    fi
-    if [[ ${status} -eq 0 ]]; then
-        start_or_stop_service "stop" "rev_services" "${@}"
-    fi
+    start_or_stop_service "stop" "rev_services" "${@}"
     return 0
 }
 
@@ -963,10 +639,6 @@ start_or_stop_service() {
         local list=( "${services[@]}" ) ;;
         "rev_services")
         local list=( "${rev_services[@]}" ) ;;
-        "enterprise_services")
-        local list=( "${enterprise_services[@]}" ) ;;
-        "rev_enterprise_services")
-        local list=( "${rev_enterprise_services[@]}" ) ;;
     esac
     shift
     local service="${1}"
@@ -1197,12 +869,13 @@ connect_load_command() {
     if [[ "x${connector}" == "x" ]]; then
         die "Missing required connector name argument in '${command_name} load'"
     elif [[ "x${flag}" == "x" ]]; then
-        if is_predefined_connector "${connector}"; then
-            connector_config_template "${connector}" "${confluent_conf}/${_retval}" "true"
-            parsed_json="${_retval}"
-        else
-            die "${connector} is not a predefined connector name.\nUse '${command_name} load ${connector} -d <connector-config-file.[json|properties]' to load the connector's configuration."
-        fi
+        die "not supported"
+        #if is_predefined_connector "${connector}"; then
+        #    connector_config_template "${connector}" "${confluent_conf}/${_retval}" "true"
+        #    parsed_json="${_retval}"
+        #else
+        #    die "${connector} is not a predefined connector name.\nUse '${command_name} load ${connector} -d <connector-config-file.[json|properties]' to load the connector's configuration."
+        #fi
     else
         if [[ "${flag}" != "-d" ]]; then
             invalid_argument "load" "${flag}"
@@ -1337,20 +1010,6 @@ connect_config_command() {
 
 connect_restart_command() {
     echo "Not implemented yet!"
-}
-
-acl_command() {
-    local service="${1}"
-    shift
-    case "${service}" in
-        schema-registry)
-                    if [[ -f "${confluent_bin}/sr-acl-cli" ]] ; then
-                        exec_cli "sr-acl-cli" "--config" "${confluent_conf}/schema-registry/schema-registry.properties" "$@"
-                    else
-                        echo "Please install Confluent Security Plugins to use acl schema-registry"
-                    fi;;
-        *) die "Missing required <service> argument. Type 'confluent help acl' to get a list of services supporting ACL";;
-    esac
 }
 
 connect_subcommands() {
