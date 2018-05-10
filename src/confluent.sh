@@ -370,7 +370,7 @@ wait_zookeeper() {
     local started=false
     local timeout_ms=5000
     while [[ "${started}" == false && "${timeout_ms}" -gt 0 ]]; do
-        ( lsof -P -c java 2> /dev/null | grep ${zk_port} > /dev/null 2>&1 ) && started=true
+        ( netstat -aon 2> /dev/null | grep -a ${zk_port} > /dev/null 2>&1 ) && started=true
         spinner && (( timeout_ms = timeout_ms - wheel_freq_ms ))
     done
     wait_process_up "${pid}" 2000 || echo "Zookeeper failed to start"
@@ -415,7 +415,7 @@ wait_kafka() {
     local timeout_ms=10000
 
     while [[ "${started}" == false && "${timeout_ms}" -gt 0 ]]; do
-        ( lsof -P -c java 2> /dev/null | grep ${kafka_port} > /dev/null 2>&1 ) && started=true
+        ( netstat -aon 2> /dev/null | grep -a ${kafka_port} > /dev/null 2>&1 ) && started=true
         spinner && (( timeout_ms = timeout_ms - wheel_freq_ms ))
     done
     wait_process_up "${pid}" 3000 || echo "Kafka failed to start"
