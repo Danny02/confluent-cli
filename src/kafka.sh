@@ -89,13 +89,10 @@ declare -a commands=(
 )
 
 declare -a connector_properties=(
-    "elasticsearch-sink=kafka-connect-elasticsearch/quickstart-elasticsearch.properties"
-    "file-source=kafka/connect-file-source.properties"
-    "file-sink=kafka/connect-file-sink.properties"
-    "jdbc-source=kafka-connect-jdbc/source-quickstart-sqlite.properties"
-    "jdbc-sink=kafka-connect-jdbc/sink-quickstart-sqlite.properties"
-    "hdfs-sink=kafka-connect-hdfs/quickstart-hdfs.properties"
-    "s3-sink=kafka-connect-s3/quickstart-s3.properties"
+    "console-sink=connect-console-sink.properties"
+    "console-source=connect-console-source.properties"
+    "file-sink=connect-file-sink.properties"
+    "file-source=connect-console-source.properties"
 )
 
 export SAVED_KAFKA_LOG4J_OPTS="${KAFKA_LOG4J_OPTS}"
