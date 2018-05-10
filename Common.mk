@@ -14,10 +14,10 @@ endif
 all: build
 
 install: build
-ifndef CONFLUENT_HOME
+ifndef KAFKA_HOME
 	$(error Cannot install. CONFLUENT_HOME is not set)
 endif
-	install $(INSTALL_FLAGS) -m 755 bin/confluent $(CONFLUENT_HOME)/bin/confluent
+	install $(INSTALL_FLAGS) -m 755 bin/confluent $(KAFKA_HOME)/bin/confluent
 
 build: oss
 

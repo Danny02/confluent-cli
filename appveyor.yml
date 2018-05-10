@@ -1,0 +1,28 @@
+image: Visual Studio 2017
+
+environment:
+  KAFKA_HOME: C:\ProgramData\chocolatey\lib\kafka\tools\kafka_2.11-1.1.0 
+
+  matrix:
+    - shell: msys
+      sys_path: C:\msys64\%MSYSTEM%\bin;C:\msys64\usr\bin
+    - shell: cygwin
+      sys_path: C:\cygwin\bin 
+
+#matrix:
+#  fast_finish: true 
+
+init:
+  - ps: $env:PATH = $env:PATH -replace "C:\\Program Files\\Git\\usr\\bin",""
+  - cinst kafka
+  - "set PATH=%sys_path%;%KAFKA_HOME%\\bin;%PATH%"
+
+build_script: bash -c "make install"
+
+test_script: appveyor-test.bat
+
+cache:
+  - C:\ProgramData\chocolatey\bin -> appveyor.yml
+  - C:\ProgramData\chocolatey\lib -> appveyor.yml
+
+
