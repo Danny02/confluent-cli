@@ -17,7 +17,7 @@ init:
   - cinst kafka
   - "set PATH=%sys_path%;%KAFKA_HOME%\\bin;%PATH%"
 
-build_script: appveyor-build.bat
+build_script: bash -c "make install"
 
 test_script: appveyor-test.bat
 

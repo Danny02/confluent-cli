@@ -1,6 +1,17 @@
 # Confluent Platform CLI
 A CLI to start and manage Confluent Platform from command line.
 
+## Status
+
+|Shell|Status|
+|-|-|
+|MSYS2|[![mysys][]][build-link]|
+|Cygwin|[![cygwin][]][build-link]|
+
+[mysys]: https://appveyor-matrix-badges.herokuapp.com/repos/Danny02/kafka-cli-oylt8/branch/master/1
+[cygwin]: https://appveyor-matrix-badges.herokuapp.com/repos/Danny02/kafka-cli-oylt8/branch/master/2
+[build-link]: https://ci.appveyor.com/project/Danny02/kafka-cli-oylt8
+
 ## Installation
 
 * Download and install [Confluent OSS](https://www.confluent.io/download/)
