@@ -38,14 +38,10 @@ validate_and_export_dir_layout() {
 
     kafka_home="$( dirname "${kafka_bin}" )"
 
-    kafka_conf="${kafka_home}/etc"
-    # workaround for the cases when 'etc' is not under the same directory as 'bin'
-    if [[ ! -f "${kafka_conf}/schema-registry/connect-avro-distributed.properties" ]]; then
-        kafka_conf="$( cd "${kafka_home}/../etc" > /dev/null 2>&1 && pwd )"
-    fi
+    kafka_conf="${kafka_home}/config"
 
-    [[ ! -f "${kafka_conf}/schema-registry/connect-avro-distributed.properties" ]] \
-        && die "Cannot locate 'etc' directory for Confluent Platform."
+    [[ ! -f "${kafka_conf}/connect-distributed.properties" ]] \
+        && die "Cannot locate 'config' directory for Kafka."
 
     # $TMPDIR includes a trailing '/' by default.
     tmp_dir="${TMPDIR:-/tmp/}"
@@ -234,6 +230,19 @@ spinner_done() {
     spinner_running=false
 }
 
+get_version() {
+    local kafka_prefix="${kafka_home}/libs/kafka/kafka-clients-"
+    local zookeeper_prefix="${kafka_home}/libs/zookeeper-"
+
+    kafka_version="$( ls ${kafka_prefix}*.jar 2> /dev/null )"
+    kafka_version="${kafka_version#$kafka_prefix}"
+    export kafka_version="${kafka_version%.jar}"
+
+    zookeeper_version="$( ls ${zookeeper_prefix}*.jar 2> /dev/null )"
+    zookeeper_version="${zookeeper_version#$zookeeper_prefix}"
+    export zookeeper_version="${zookeeper_version%.jar}"
+}
+
 set_or_get_current() {
     if [[ -f "${kafka_current_dir}kafka.current" ]]; then
         export kafka_current="$( cat "${kafka_current_dir}kafka.current" )"
@@ -338,15 +347,15 @@ stop_and_wait_process() {
 start_zookeeper() {
     export_service_env "ZOOKEEPER_"
     export_log4j_zookeeper
-    start_service "zookeeper" "${kafka_bin}/zookeeper-server-start"
+    start_service "zookeeper" "${kafka_bin}/zookeeper-server-start.sh"
 }
 
 config_zookeeper() {
-    config_service "zookeeper" "kafka" "zookeeper" "dataDir"
+    config_service "zookeeper" "zookeeper" "dataDir"
 }
 
 export_zookeeper() {
-    get_service_port "clientPort" "${kafka_conf}/kafka/zookeeper.properties" "="
+    get_service_port "clientPort" "${kafka_conf}/zookeeper.properties" "="
     if [[ -n "${_retval}" ]]; then
         export zk_port="${_retval}"
     else
@@ -382,16 +391,16 @@ start_kafka() {
         || die "Cannot start Kafka, Zookeeper is not running. Check your deployment"
     export_service_env "SAVED_KAFKA_"
     export_log4j_kafka
-    start_service "kafka" "${kafka_bin}/kafka-server-start"
+    start_service "kafka" "${kafka_bin}/kafka-server-start.sh"
 }
 
 config_kafka() {
     export_kafka
-    config_service "kafka" "kafka" "server" "log.dirs"
+    config_service "kafka" "server" "log.dirs"
 }
 
 export_kafka() {
-    get_service_port "listeners" "${kafka_conf}/kafka/server.properties"
+    get_service_port "listeners" "${kafka_conf}/server.properties"
     if [[ -n "${_retval}" ]]; then
         export kafka_port="${_retval}"
     else
@@ -427,19 +436,19 @@ start_connect() {
         || die "Cannot start Kafka Connect, Kafka Server is not running. Check your deployment"
     export_service_env "CONNECT_"
     export_log4j_connect
-    start_service "connect" "${kafka_bin}/connect-distributed"
+    start_service "connect" "${kafka_bin}/connect-distributed.sh"
 }
 
 config_connect() {
-    get_service_port "listeners" "${kafka_conf}/kafka/server.properties"
+    get_service_port "listeners" "${kafka_conf}/server.properties"
     export_kafka
 
-    config_service "connect" "schema-registry" "connect-avro-distributed" \
+    config_service "connect" "connect-distributed" \
         "bootstrap.servers" "localhost:${kafka_port}"
 }
 
 export_connect() {
-    get_service_port "rest.port" "${kafka_conf}/schema-registry/connect-avro-distributed.properties" "="
+    get_service_port "rest.port" "${kafka_conf}/connect-distributed.properties" "="
     if [[ -n "${_retval}" ]]; then
         export connect_port="${_retval}"
     else
@@ -508,16 +517,15 @@ start_service() {
 # TODO: refactor to pass property pairs as a map.
 config_service() {
     local service="${1}"
-    local package="${2}"
-    local property_file="${3}"
+    local property_file="${2}"
 
-    ( [[ -z "${service}" ]] || [[ -z "${package}" ]] || [[ -z "${property_file}" ]] ) \
+    ( [[ -z "${service}" ]] || [[ -z "${property_file}" ]] ) \
         && die "Missing required configuration properties for service: ${service}"
 
     local service_dir="${kafka_current}/${service}"
     mkdir -p "${service_dir}/data"
-    local property_key="${4}"
-    local property_value="${5}"
+    local property_key="${3}"
+    local property_value="${4}"
     if [[ -n "${property_key}" && -z "${property_value}" ]]; then
         config_command="sed -e s@^${property_key}=.*@${property_key}=${service_dir}/data@g"
     else
@@ -525,7 +533,7 @@ config_service() {
         config_command=cat
     fi
 
-    local input_file="${kafka_conf}/${package}/${property_file}.properties"
+    local input_file="${kafka_conf}/${property_file}.properties"
 
     ${config_command} < "${input_file}" \
         > "${service_dir}/${service}.properties"
@@ -741,7 +749,7 @@ log_command() {
 }
 
 connect_bundled_command() {
-    echo "Bundled Predefined Connectors (edit configuration under etc/):"
+    echo "Bundled Predefined Connectors (edit configuration under $KAFKA_HOME/config/):"
 
     local entry=""
     for entry in "${connector_properties[@]}"; do
@@ -869,13 +877,12 @@ connect_load_command() {
     if [[ "x${connector}" == "x" ]]; then
         die "Missing required connector name argument in '${command_name} load'"
     elif [[ "x${flag}" == "x" ]]; then
-        die "not supported"
-        #if is_predefined_connector "${connector}"; then
-        #    connector_config_template "${connector}" "${kafka_conf}/${_retval}" "true"
-        #    parsed_json="${_retval}"
-        #else
-        #    die "${connector} is not a predefined connector name.\nUse '${command_name} load ${connector} -d <connector-config-file.[json|properties]' to load the connector's configuration."
-        #fi
+        if is_predefined_connector "${connector}"; then
+            connector_config_template "${connector}" "${kafka_conf}/${_retval}" "true"
+            parsed_json="${_retval}"
+        else
+            die "${connector} is not a predefined connector name.\nUse '${command_name} load ${connector} -d <connector-config-file.[json|properties]' to load the connector's configuration."
+        fi
     else
         if [[ "${flag}" != "-d" ]]; then
             invalid_argument "load" "${flag}"
@@ -1061,7 +1068,7 @@ version_command() {
             echo "${kafka_version}"
         fi
     else
-        echo "${kafka_flavor}: ${kafka_version}"
+        echo "${kafka_version}"
     fi
 }
 
