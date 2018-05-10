@@ -34,24 +34,24 @@ die() {
 validate_and_export_dir_layout() {
     command_name="$( basename "${BASH_SOURCE[0]}" )"
 
-    confluent_bin="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    kafka_bin="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-    confluent_home="$( dirname "${confluent_bin}" )"
+    kafka_home="$( dirname "${kafka_bin}" )"
 
-    confluent_conf="${confluent_home}/etc"
+    kafka_conf="${kafka_home}/etc"
     # workaround for the cases when 'etc' is not under the same directory as 'bin'
-    if [[ ! -f "${confluent_conf}/schema-registry/connect-avro-distributed.properties" ]]; then
-        confluent_conf="$( cd "${confluent_home}/../etc" > /dev/null 2>&1 && pwd )"
+    if [[ ! -f "${kafka_conf}/schema-registry/connect-avro-distributed.properties" ]]; then
+        kafka_conf="$( cd "${kafka_home}/../etc" > /dev/null 2>&1 && pwd )"
     fi
 
-    [[ ! -f "${confluent_conf}/schema-registry/connect-avro-distributed.properties" ]] \
+    [[ ! -f "${kafka_conf}/schema-registry/connect-avro-distributed.properties" ]] \
         && die "Cannot locate 'etc' directory for Confluent Platform."
 
     # $TMPDIR includes a trailing '/' by default.
     tmp_dir="${TMPDIR:-/tmp/}"
-    confluent_current_dir="${CONFLUENT_CURRENT:-${tmp_dir}}"
-    last="${confluent_current_dir:${#confluent_current_dir}-1:1}"
-    [[ "${last}" != "/" ]] && export confluent_current_dir="${confluent_current_dir}/"
+    kafka_current_dir="${KAFKA_CURRENT:-${tmp_dir}}"
+    last="${kafka_current_dir:${#kafka_current_dir}-1:1}"
+    [[ "${last}" != "/" ]] && export kafka_current_dir="${kafka_current_dir}/"
 }
 
 # Since this function performs essential initializations, call it as early as possible.
@@ -235,13 +235,13 @@ spinner_done() {
 }
 
 set_or_get_current() {
-    if [[ -f "${confluent_current_dir}confluent.current" ]]; then
-        export confluent_current="$( cat "${confluent_current_dir}confluent.current" )"
+    if [[ -f "${kafka_current_dir}kafka.current" ]]; then
+        export kafka_current="$( cat "${kafka_current_dir}kafka.current" )"
     fi
 
-    if [[ ! -d "${confluent_current}" ]]; then
-        export confluent_current="$( mktemp -d ${confluent_current_dir}confluent.XXXXXXXX )"
-        echo "${confluent_current}" > "${confluent_current_dir}confluent.current"
+    if [[ ! -d "${kafka_current}" ]]; then
+        export kafka_current="$( mktemp -d ${kafka_current_dir}kafka.XXXXXXXX )"
+        echo "${kafka_current}" > "${kafka_current_dir}kafka.current"
     fi
 
     get_version
@@ -266,7 +266,7 @@ is_not_alive() {
 is_running() {
     local service="${1}"
     local print_status="${2}"
-    local service_dir="${confluent_current}/${service}"
+    local service_dir="${kafka_current}/${service}"
     local service_pid="$( cat "${service_dir}/${service}.pid" 2> /dev/null )"
 
     is_alive "${service_pid}"
@@ -338,7 +338,7 @@ stop_and_wait_process() {
 start_zookeeper() {
     export_service_env "ZOOKEEPER_"
     export_log4j_zookeeper
-    start_service "zookeeper" "${confluent_bin}/zookeeper-server-start"
+    start_service "zookeeper" "${kafka_bin}/zookeeper-server-start"
 }
 
 config_zookeeper() {
@@ -346,7 +346,7 @@ config_zookeeper() {
 }
 
 export_zookeeper() {
-    get_service_port "clientPort" "${confluent_conf}/kafka/zookeeper.properties" "="
+    get_service_port "clientPort" "${kafka_conf}/kafka/zookeeper.properties" "="
     if [[ -n "${_retval}" ]]; then
         export zk_port="${_retval}"
     else
@@ -382,7 +382,7 @@ start_kafka() {
         || die "Cannot start Kafka, Zookeeper is not running. Check your deployment"
     export_service_env "SAVED_KAFKA_"
     export_log4j_kafka
-    start_service "kafka" "${confluent_bin}/kafka-server-start"
+    start_service "kafka" "${kafka_bin}/kafka-server-start"
 }
 
 config_kafka() {
@@ -391,7 +391,7 @@ config_kafka() {
 }
 
 export_kafka() {
-    get_service_port "listeners" "${confluent_conf}/kafka/server.properties"
+    get_service_port "listeners" "${kafka_conf}/kafka/server.properties"
     if [[ -n "${_retval}" ]]; then
         export kafka_port="${_retval}"
     else
@@ -427,11 +427,11 @@ start_connect() {
         || die "Cannot start Kafka Connect, Kafka Server is not running. Check your deployment"
     export_service_env "CONNECT_"
     export_log4j_connect
-    start_service "connect" "${confluent_bin}/connect-distributed"
+    start_service "connect" "${kafka_bin}/connect-distributed"
 }
 
 config_connect() {
-    get_service_port "listeners" "${confluent_conf}/kafka/server.properties"
+    get_service_port "listeners" "${kafka_conf}/kafka/server.properties"
     export_kafka
 
     config_service "connect" "schema-registry" "connect-avro-distributed" \
@@ -439,7 +439,7 @@ config_connect() {
 }
 
 export_connect() {
-    get_service_port "rest.port" "${confluent_conf}/schema-registry/connect-avro-distributed.properties" "="
+    get_service_port "rest.port" "${kafka_conf}/schema-registry/connect-avro-distributed.properties" "="
     if [[ -n "${_retval}" ]]; then
         export connect_port="${_retval}"
     else
@@ -487,7 +487,7 @@ status_service() {
 start_service() {
     local service="${1}"
     local start_command="${2}"
-    local service_dir="${confluent_current}/${service}"
+    local service_dir="${kafka_current}/${service}"
     is_running "${service}" "false" \
         && echo "${service} is already running. Try restarting if needed"\
         && return 0
@@ -514,7 +514,7 @@ config_service() {
     ( [[ -z "${service}" ]] || [[ -z "${package}" ]] || [[ -z "${property_file}" ]] ) \
         && die "Missing required configuration properties for service: ${service}"
 
-    local service_dir="${confluent_current}/${service}"
+    local service_dir="${kafka_current}/${service}"
     mkdir -p "${service_dir}/data"
     local property_key="${4}"
     local property_value="${5}"
@@ -525,14 +525,14 @@ config_service() {
         config_command=cat
     fi
 
-    local input_file="${confluent_conf}/${package}/${property_file}.properties"
+    local input_file="${kafka_conf}/${package}/${property_file}.properties"
 
     ${config_command} < "${input_file}" \
         > "${service_dir}/${service}.properties"
 
     # Override Connect's config, in case this is an unchanged config from a tar.gz or .zip package
     # installation, to make plugin.path work for any "current working directory (cwd)"
-    #local plugins_dir=$(cygpath -w ${confluent_home}/kafka/plugins | sed 's|\\|/|g')
+    #local plugins_dir=$(cygpath -w ${kafka_home}/kafka/plugins | sed 's|\\|/|g')
     #if [[ "${service}" == "connect" ]]; then
     #    sed "s@^#plugin.path=@plugin.path=${plugins_dir}@g" \
     #        "${service_dir}/${service}.properties" > "${service_dir}/${service}.properties.bak"
@@ -542,12 +542,12 @@ config_service() {
 
 export_log4j_with_generic_log_dir() {
     local service="${1}"
-    export LOG_DIR="${confluent_current}/${service}/logs"
+    export LOG_DIR="${kafka_current}/${service}/logs"
 }
 
 stop_service() {
     local service="${1}"
-    local service_dir="${confluent_current}/${service}"
+    local service_dir="${kafka_current}/${service}"
     # check file exists, and if not issue warning.
     local service_pid="$( cat "${service_dir}/${service}.pid" 2> /dev/null )"
     echo "Stopping ${service}"
@@ -569,7 +569,7 @@ command_exists() {
 }
 
 exec_cli(){
-    exec "${confluent_bin}"/"${1}"  "$@"
+    exec "${kafka_bin}"/"${1}"  "$@"
 }
 
 exists() {
@@ -603,13 +603,13 @@ list_command() {
 
 start_command() {
     set_or_get_current
-    echo "Using CONFLUENT_CURRENT: ${confluent_current}"
+    echo "Using KAFKA_CURRENT: ${kafka_current}"
     start_or_stop_service "start" "services" "${@}"
 }
 
 stop_command() {
     set_or_get_current
-    echo "Using CONFLUENT_CURRENT: ${confluent_current}"
+    echo "Using KAFKA_CURRENT: ${kafka_current}"
     start_or_stop_service "stop" "rev_services" "${@}"
     return 0
 }
@@ -661,19 +661,19 @@ start_or_stop_service() {
 
 print_current() {
     set_or_get_current
-    echo "${confluent_current}"
+    echo "${kafka_current}"
 }
 
 destroy_command() {
-    if [[ -f "${confluent_current_dir}confluent.current" ]]; then
-        export confluent_current="$( cat "${confluent_current_dir}confluent.current" )"
+    if [[ -f "${kafka_current_dir}kafka.current" ]]; then
+        export kafka_current="$( cat "${kafka_current_dir}kafka.current" )"
     fi
 
-    [[ ${confluent_current} == ${confluent_current_dir}confluent* ]] \
+    [[ ${kafka_current} == ${kafka_current_dir}kafka* ]] \
         && stop_command \
-        && echo "Deleting: ${confluent_current}" \
-        && rm -rf "${confluent_current}" \
-        && rm -f "${confluent_current_dir}confluent.current"
+        && echo "Deleting: ${kafka_current}" \
+        && rm -rf "${kafka_current}" \
+        && rm -f "${kafka_current_dir}kafka.current"
 }
 
 top_command() {
@@ -700,7 +700,7 @@ top_Linux() {
     local pids=""
     local item=""
     for item in "${service[@]}"; do
-        local service_dir="${confluent_current}/${item}"
+        local service_dir="${kafka_current}/${item}"
         local service_pid="$( cat "${service_dir}/${item}.pid" 2> /dev/null )"
         [[ -n "${service_pid}" ]] && pids="${pids}${service_pid},"
     done
@@ -714,7 +714,7 @@ top_Darwin() {
 
     [[ -z "${service}" ]] && die "Missing required service argument in '${command_name} top'"
 
-    local service_dir="${confluent_current}/${service}"
+    local service_dir="${kafka_current}/${service}"
     local service_pid="$( cat "${service_dir}/${service}.pid" 2> /dev/null )"
     top -pid "${service_pid}"
 }
@@ -730,7 +730,7 @@ log_command() {
     fi
     shift
 
-    local service_dir="${confluent_current}/${service}"
+    local service_dir="${kafka_current}/${service}"
     local service_log="${service_dir}/${service}.stdout"
 
     if [[ $# -gt 0 ]]; then
@@ -871,7 +871,7 @@ connect_load_command() {
     elif [[ "x${flag}" == "x" ]]; then
         die "not supported"
         #if is_predefined_connector "${connector}"; then
-        #    connector_config_template "${connector}" "${confluent_conf}/${_retval}" "true"
+        #    connector_config_template "${connector}" "${kafka_conf}/${_retval}" "true"
         #    parsed_json="${_retval}"
         #else
         #    die "${connector} is not a predefined connector name.\nUse '${command_name} load ${connector} -d <connector-config-file.[json|properties]' to load the connector's configuration."
@@ -1058,10 +1058,10 @@ version_command() {
         elif [[ "x${service}" == "xzookeeper" ]]; then
             echo "${zookeeper_version}"
         else
-            echo "${confluent_version}"
+            echo "${kafka_version}"
         fi
     else
-        echo "${confluent_flavor}: ${confluent_version}"
+        echo "${kafka_flavor}: ${kafka_version}"
     fi
 }
 
@@ -1075,20 +1075,20 @@ Description:
     Without arguments it prints the list of all the available services.
 
     Given 'plugins' as subcommand, prints all the connector-plugins which are
-    discoverable in the current Confluent Platform deployment.
+    discoverable in the current Kafka deployment.
 
     Given 'connectors' as subcommand, prints a list of connector names that map to predefined
-    connectors. Their configuration files can be found under 'etc/' directory in Confluent Platform.
+    connectors. Their configuration files can be found under 'config/' directory in Kafka.
 
 
 Examples:
-    confluent list
+    kafka list
         Prints the available services.
 
-    confluent list plugins
+    kafka list plugins
         Prints all the connector plugins (connector classes) discoverable by Connect runtime.
 
-    confluent list connectors
+    kafka list connectors
         Prints a list of predefined connectors.
 
 EOF
@@ -1109,10 +1109,10 @@ Output:
 
 
 Examples:
-    confluent start
+    kafka start
         Starts all available services.
 
-    confluent start kafka
+    kafka start kafka
         Starts kafka and zookeeper as its dependency.
 
 EOF
@@ -1133,10 +1133,10 @@ Output:
 
 
 Examples:
-    confluent stop
+    kafka stop
         Stops all available services.
 
-    confluent stop kafka
+    kafka stop kafka
         Stops kafka and zookeeper as its dependency.
 
 EOF
@@ -1161,16 +1161,16 @@ Description:
 
 
 Examples:
-    confluent status
+    kafka status
         Prints the status of the available services.
 
-    confluent status kafka
+    kafka status kafka
         Prints the status of the 'kafka' service.
 
-    confluent status connectors
+    kafka status connectors
         Prints a list with the loaded connectors at any given moment.
 
-    confluent status file-source
+    kafka status file-source
         Prints the status of the connector with the given name.
 
 EOF
@@ -1183,16 +1183,16 @@ Usage: ${command_name} current
 
 Description:
     Return the filesystem path of the data and logs of the services managed by the current
-    confluent run. If such a path does not exist, it will be created.
+    kafka run. If such a path does not exist, it will be created.
 
 
 Output:
-    The filesystem directory path to the current confluent run.
+    The filesystem directory path to the current kafka run.
 
 
 Examples:
-    confluent current
-        /tmp/confluent.SpBP4fQi
+    kafka current
+        /tmp/kafka.SpBP4fQi
 
 EOF
     exit 0
@@ -1203,12 +1203,12 @@ destroy_usage() {
 Usage: ${command_name} destroy
 
 Description:
-    Delete an existing confluent run. Any running services are stopped. The data and the log
+    Delete an existing kafka run. Any running services are stopped. The data and the log
     files of all services are deleted.
 
 
 Examples:
-    confluent destroy
+    kafka destroy
         Confirms that every service is stopped and finally prints the filesystem path that is deleted.
 
 EOF
@@ -1226,10 +1226,10 @@ Description:
 
 
 Examples:
-    confluent log connect
+    kafka log connect
         Opens the connect log using 'less'.
 
-    confluent log kafka -f
+    kafka log kafka -f
         Tails the kafka log and waits to print additional output until the log command is interrupted.
 
 EOF
@@ -1285,17 +1285,17 @@ Description:
 
 
 Examples:
-    confluent config s3-sink
+    kafka config s3-sink
         Prints the current configuration of the predefined connector with name 's3-sink'
 
-    confluent config wikipedia-file-source
+    kafka config wikipedia-file-source
         Prints the current configuration of a custom connector with name 'wikipedia-file-source'
 
-    confluent config wikipedia-file-source -d ./wikipedia-file-source.json
+    kafka config wikipedia-file-source -d ./wikipedia-file-source.json
         Configures a connector named 'wikipedia-file-source' by passing its configuration properties in
         JSON format.
 
-    confluent config wikipedia-file-source -d ./wikipedia-file-source.properties
+    kafka config wikipedia-file-source -d ./wikipedia-file-source.properties
         Configures a connector named 'wikipedia-file-source' by passing its configuration properties as
         java properties.
 
@@ -1308,14 +1308,14 @@ version_usage() {
 Usage: ${command_name} version [<service>]
 
 Description:
-    Print the Confluent Platform flavor and version, or the individual version of a service.
+    Print the Kafka version, or the individual version of a service.
 
 Examples:
-    confluent version
-        Prints the flavor and version of Confluent platform.
+    kafka version
+        Prints the version of Kafka.
 
-    confluent version kafka
-        Prints the version of a service included with Confluent platform, 'kafka' in this example.
+    kafka version zookeeper
+        Prints the version of a service included with Kafka, 'zookeeper' in this example.
 
 EOF
     exit 0
@@ -1323,15 +1323,15 @@ EOF
 
 usage() {
     cat <<EOF
-${command_name}: A command line interface to manage Confluent services
+${command_name}: A command line interface to manage Kafka services
 
 Usage: ${command_name} <command> [<subcommand>] [<parameters>]
 
 These are the available commands:
 
     config      Configure a connector.
-    current     Get the path of the data and logs of the services managed by the current confluent run.
-    destroy     Delete the data and logs of the current confluent run.
+    current     Get the path of the data and logs of the services managed by the current kafka run.
+    destroy     Delete the data and logs of the current kafka run.
     list        List available services.
     load        Load a connector.
     log         Read or tail the log of a service.
@@ -1340,7 +1340,7 @@ These are the available commands:
     stop        Stop all services or a specific service along with the services depending on it.
     top         Track resource usage of a service.
     unload      Unload a connector.
-    version     Print the Confluent Platform flavor and version or the individual version of a service.
+    version     Print the Kafka version or the individual version of a service.
 
 '${command_name} help' lists available commands. See '${command_name} help <command>' to read about a
 specific command.
