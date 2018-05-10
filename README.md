@@ -1,5 +1,5 @@
-# Confluent Platform CLI
-A CLI to start and manage Confluent Platform from command line.
+# Kafka CLI
+A CLI to start and manage Kafka from command line.
 
 ## Status
 
@@ -14,122 +14,122 @@ A CLI to start and manage Confluent Platform from command line.
 
 ## Installation
 
-* Download and install [Confluent OSS](https://www.confluent.io/download/)
+* Download and install [Kafka](https://kafka.apache.org/downloads)
 
-* Checkout *confluent-cli* by running:
+* Checkout *kafka-cli* by running:
 
     ```bash
-    $ git clone git@github.com:confluentinc/confluent-cli.git
+    $ git clone git@github.com:Danny02/kafka-cli.git
     ```
 
-* Set *CONFLUENT_HOME* environment variable to point to the location of Confluent OSS. For instance:
+* Set *KAFKA_HOME* environment variable to point to the location of Kafka. For instance:
 
     ```bash
-    $ export CONFLUENT_HOME=/usr/local/confluent-3.3.0
+    $ export KAFKA_HOME=/usr/local/kafka_2.11-1.1.0
     ```
 
-* Install *confluent-cli*:
+* Install *kafka-cli*:
 
     ```bash
-    $ cd confluent-cli; make install
+    $ cd kafka-cli; make install
     ```
 
 ## Usage
 To get a list of available commands, run:
 
 ```bash
-$ export PATH=${CONFLUENT_HOME}/bin:${PATH};
-$ confluent help
+$ export PATH=${KAFKA_HOME}/bin:${PATH};
+$ kafka help
 ```
 
 Examples:
 
 * Start all the services!
 ```bash
-$ confluent start
+$ kafka start
 ```
 
 * Retrieve their status:
 ```bash
-$ confluent status
+$ kafka status
 ```
 
 * Open the log file of a service:
 ```bash
-$ confluent log connect
+$ kafka log connect
 ```
 
 * Access runtime stats of a service:
 ```bash
-$ confluent top kafka
+$ kafka top kafka
 ```
 
 * Discover the availabe Connect plugins:
 ```bash
-$ confluent list plugins
+$ kafka list plugins
 ```
 
 * or list the predefined connector names:
 ```bash
-$ confluent list connectors
+$ kafka list connectors
 ```
 
 * Load a couple connectors:
 ```bash
-$ confluent load file-source
-$ confluent load file-sink
+$ kafka load file-source
+$ kafka load file-sink
 ```
 
 * Get a list with the currently loaded connectors:
 ```bash
-$ confluent status connectors
+$ kafka status connectors
 ```
 
 * Check the status of a loaded connector:
 ```bash
-$ confluent status file-source
+$ kafka status file-source
 ```
 
 * Read the configuration of a connector:
 ```bash
-$ confluent config file-source
+$ kafka config file-source
 ```
 
 * Reconfigure a connector:
 ```bash
-$ confluent config file-source -d ./updated-file-source-config.json
+$ kafka config file-source -d ./updated-file-source-config.json
 ```
 
 * or reconfigure using a properties file:
 ```bash
-$ confluent config file-source -d ./updated-file-source-config.properties
+$ kafka config file-source -d ./updated-file-source-config.properties
 ```
 
-* Figure out where the data and the logs of the current confluent run are stored:
+* Figure out where the data and the logs of the current kafka run are stored:
 ```bash
-$ confluent current
+$ kafka current
 ```
 
 * Unload a specific connector:
 ```bash
-$ confluent unload file-sink
+$ kafka unload file-sink
 ```
 
 * Stop the services:
 ```bash
-$ confluent stop
+$ kafka stop
 ```
 
-* Start on a clean slate next time (deletes data and logs of a confluent run):
+* Start on a clean slate next time (deletes data and logs of a kafka run):
 ```bash
-$ confluent destroy
+$ kafka destroy
 ```
 
-Set CONFLUENT_CURRENT if you want to use a top directory for confluent runs other than your platform's tmp directory.
+Set KAFKA_CURRENT if you want to use a top directory for kafka runs other than your platform's tmp directory.
 
 ```bash
-$ cd $CONFLUENT_HOME
+$ cd $KAFKA_HOME
 $ mkdir -p var
-$ export CONFLUENT_CURRENT=${CONFLUENT_HOME}/var
-$ confluent current
+$ export KAFKA_CURRENT=${KAFKA_HOME}/var
+$ kafka current
 ```

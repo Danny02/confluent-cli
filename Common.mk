@@ -1,4 +1,4 @@
-PACKAGE_NAME ?= confluent-cli
+PACKAGE_NAME ?= kafka-cli
 VERSION ?= 5.0.0-SNAPSHOT
 PLATFORM = $(shell uname -s)
 INSTALL_FLAGS = -D
@@ -15,9 +15,9 @@ all: build
 
 install: build
 ifndef KAFKA_HOME
-	$(error Cannot install. CONFLUENT_HOME is not set)
+	$(error Cannot install. KAFKA_HOME is not set)
 endif
-	install $(INSTALL_FLAGS) -m 755 bin/confluent $(KAFKA_HOME)/bin/confluent
+	install $(INSTALL_FLAGS) -m 755 bin/kafka $(KAFKA_HOME)/bin/kafka
 
 build: oss
 
@@ -25,8 +25,8 @@ prep:
 	mkdir -p bin/
 
 oss: prep
-	cp -f src/confluent.sh bin/confluent
-	chmod 755 bin/confluent
+	cp -f src/kafka.sh bin/kafka
+	chmod 755 bin/kafka
 
 clean:
 	rm -rf bin/
