@@ -13,6 +13,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+#
+# Copyright 2018 Daniel Heinrich
+#
+# This file has been modified to support the standard kafka distribution
+# and add windows support.
+# see https://github.com/Danny02/kafka-cli
 
 success=false
 # Uncomment to enable debugging on the console
