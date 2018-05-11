@@ -547,12 +547,13 @@ config_service() {
 
     # Override Connect's config, in case this is an unchanged config from a tar.gz or .zip package
     # installation, to make plugin.path work for any "current working directory (cwd)"
-    #local plugins_dir=$(cygpath -w ${kafka_home}/kafka/plugins | sed 's|\\|/|g')
-    #if [[ "${service}" == "connect" ]]; then
-    #    sed "s@^#plugin.path=@plugin.path=${plugins_dir}@g" \
-    #        "${service_dir}/${service}.properties" > "${service_dir}/${service}.properties.bak"
-    #    mv -f "${service_dir}/${service}.properties.bak" "${service_dir}/${service}.properties"
-    #fi
+    local plugins_dir="${kafka_home}/plugins"
+	(( is_windows )) && plugins_dir=$(cygpath -m $plugins_dir)
+    if [[ "${service}" == "connect" ]]; then
+        sed "s@^#plugin.path=@plugin.path=${plugins_dir}@g" \
+            "${service_dir}/${service}.properties" > "${service_dir}/${service}.properties.bak"
+        mv -f "${service_dir}/${service}.properties.bak" "${service_dir}/${service}.properties"
+    fi
 }
 
 export_log4j_with_generic_log_dir() {
