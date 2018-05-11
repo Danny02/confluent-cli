@@ -22,6 +22,8 @@ success=false
 _default_curl_timeout=10
 
 platform="$( uname -s )"
+is_windows=$(uname -s | egrep -q "MSYS|CYGWIN|MINGW" && echo 1 || echo 0)
+
 
 ERROR_CODE=127
 
@@ -498,6 +500,13 @@ start_service() {
         && echo "${service} is already running. Try restarting if needed"\
         && return 0
 
+	if [ "x$KAFKA_LOG4J_OPTS" = "x" ]; then	
+		LOG4J_DIR="$kafka_home/config/$([ $service = 'connect' ] && echo 'connect-')log4j.properties"
+		# If Cygwin is detected, LOG4J_DIR is converted to Windows format.
+		(( is_windows )) && LOG4J_DIR=$(cygpath --path --mixed "${LOG4J_DIR}")
+		export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:${LOG4J_DIR}"
+	fi	
+		
     mkdir -p "${service_dir}"
     config_"${service}"
     echo "Starting ${service}"
